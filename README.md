@@ -20,9 +20,9 @@ _Everything_ in software engineering is a compromise; one of many alternatives, 
 
 ## Ownership
 
-Everybody owns the _solution_ regardless of which part of the solution you build. QA teams are _not_ in charge of quality. The team is. The QA process should be merely a tickbox activity that "yes, the software handles all these esoteric and unusual abuses". Everybody is responsible for building the right solution.
+Everybody owns the _solution_ regardless of which part of the solution you build. QA teams are _not_ in charge of quality. The team is. The QA process should be merely a tick-box activity that "yes, the software handles all these esoteric and unusual abuses". Everybody is responsible for building the right solution.
 
-Decisions should be made "by the one most qualified". The business is the overridding authority and all decisions subordinate to that, but _how_ the business need is met is done via an "authorative democracy". The best idea wins. Of course, not everybody has "the best" idea, and in reality it can be like herding cats, but when done right, it is amazing effective. Without this, silos of knowledge and ownership thrive, and that is actively harmful to the short term and long term success.
+Decisions should be made "by the one most qualified". The business is the overriding authority and all decisions subordinate to that, but _how_ the business need is met is done via an "authoritative democracy". The best idea wins. Of course, not everybody has "the best" idea, and in reality it can be like herding cats, but when done right, it is amazing effective. Without this, silos of knowledge and ownership thrive, and that is actively harmful to the short term and long term success.
 
 In practice, this looks like individuals making decisions which are trusted by everybody because there is space for regular **respectful** scrutiny and challenge. _Everybody_ is expected to respond to questions of clarity and be open for upgrades.
 
@@ -115,10 +115,11 @@ The following are important but I have to move on, so I am merely listing them.
 
 - Rework is the killer so avoid at all costs. Rework comes from not understanding reality sufficiently so prototype, whiteboard, collaborate, discuss as much as possible before committing to production code. Rework from "bad code" is typically not an issue. Rework from "ah, now I see it I understand" is significant, so get to "now I see it" as quickly as possible.
 - Code **are** comments. Comments describing what the code _does_ are a smell. Comments describing _why_ the code works the way it does are often necessary and valuable.
-- CQRS (Command Query Reposibility Seperation/Segregation). This is an incredibly powerful paradigm where each need is addressed by a separate "stack". That stack is typically fed from a single authoratitive event stream and can use whatever tools (denormalised databases, custom model, caches etc.) it needs. **Strongly** recommend where needed.
-- Event Logs are an incredibly architecural and/or design tool, and I generally prefer them unless there is a reason not to (they aren't without cost), but I'm going to put it to one side now.
+- CQRS (Command Query Responsibility Separation/Segregation). This is an incredibly powerful paradigm where each need is addressed by a separate "stack". That stack is typically fed from a single authoritative event stream and can use whatever tools (denormalised databases, custom model, caches etc.) it needs. **Strongly** recommend where needed.
+- Event Logs are an incredibly architectural and/or design tool, and I generally prefer them unless there is a reason not to (they aren't without cost), but I'm going to put it to one side now.
 - Coding paradigm. Golang is the preferred stack which is more procedural than FP and doesn't support discriminated unions or monads.
 - Internationalisation. I typically default to doing this on the backend because it is necessary for automated reports and emails for example.
+- Co-ordinated transactions (Two Phase Commit). The service that actually _applies_ the allocations will almost certainly be expected to co-ordinate across multiple transactional boundaries. That is most definitely out of scope for this.
 
 # The Work!
 
@@ -134,16 +135,16 @@ The impact analysis for changing this later is, I would propose, simply building
 
 There are three options:
 
-1. Proceed with a single selection. Risk is costly change in future, but gain is avoidance of unecessary work and arguably quicker time to market (arguably because I don't think it is really.)
+1. Proceed with a single selection. Risk is costly change in future, but gain is avoidance of unnecessary work and arguably quicker time to market (arguably because I don't think it is really.)
 2. Support multiple selection now. Pros/Cons is inverse of 1.
 3. Support multiple selection and hide (probably just the UI) behind a feature toggle.
 
 **Decision**:
-Given that "1" is both singular and plural (i.e. a set of 1), and my gut instinct that "multiple selection" is such an obvious usecase I will proceed on the basis of 3.: the UI will expose a single selection but the core domain will accept a (non-empty) sequence.
+Given that "1" is both singular and plural (i.e. a set of 1), and my gut instinct that "multiple selection" is such an obvious use-case I will proceed on the basis of 3.: the UI will expose a single selection but the core domain will accept a (non-empty) sequence.
 
 ## Clarity - Threshold
 
-The spec states "deposit £25,000 into a Cushon ISA". My understanding is that ISAs are restricted to £20,000 so this usecase is an error condition? This requires collaboration with the domain experts, but for now I will proceed on my local knowledge.
+The spec states "deposit £25,000 into a ISA". My understanding is that ISAs are restricted to £20,000 so this use-case is an error condition? This requires collaboration with the domain experts, but for now I will proceed on my local knowledge.
 
 **Decision**:
 Maximum allowance for a tax year is £20K, but good engineering practices suggest the value should be easy to change.
@@ -167,7 +168,7 @@ It explicitly _doesn't_ state "apply the defined fund allocations". This choice 
 
 This also introduces the possibility of being able to change a pending allocation, to cancel, or amend it.
 
-NOTE: a decision here is the management of the allocations. Should they be multiple submissions which are handled one by on, coallesced into one, etc. For simplicity I **assume** that there is only one set of allocations which, whilst pending, can be cancelled or replaced.
+NOTE: a decision here is the management of the allocations. Should they be multiple submissions which are handled one by on, coalesced into one, etc. For simplicity I **assume** that there is only one set of allocations which, whilst pending, can be cancelled or replaced.
 
 Without collaboration and discussion I will proceed on the assumption that it is a Saga, but this does add significant complexity and is a fundamental architectural decision so I would look for clarity ASAP.
 
@@ -188,7 +189,7 @@ The following is the ubiquitous language:
 - fundAllocations: a non-empty `Map` from `fundId` to `amount`
 - emptyOrPendingAllocations: an optional `fundAllocations` which are restricted to the currently pending allocations.
 - fundId: identifies a unique Fund
-- amount: an amount of a single currency
+- amount: a **positive** amount of a single currency
 - emptyOrAllocations: all allocations for a given `accountId`. This is a triplet of `{dateReceived, dateApplied, fundId, amount, status}`.
 - allocation status: the status of an allocation. These outcomes are either: Pending, Succeeded, Failed(reason)
 - pending allocations: the allocations for a given `accountId` that have been acknowledged but not applied
@@ -246,9 +247,9 @@ The Allocation processor is responsible for the business logic of actually alloc
 - an asynchronous scheduler
 - the (DDD) core domain which is synchronous, is ignorant of infrastructural concerns, and observable.
 
-NOTE: This is _exactly_ where an Event driven architecture has value, with the processor accepting `AllocationFunds` commands and emitting `FundAllocationMade` events, but that is out of scope here.
+NOTE: This is _exactly_ where a message bus and Event driven architecture has value, with the processor accepting `AllocationFunds` commands and emitting `FundAllocationMade` events, but that is out of scope here.
 
-For simplicity, its implementation delegates scheduling to looking up outstanding applications from the repository, but this is a pragmatic decision and I would expect this decision to be revisited once more clarity over the domain was given. I'm not a fan of Repositories "entangling" multiple concerns, and would rather have each "slice" define their own needs, but pragmatism is aware of time...
+For simplicity, I'd suggest its implementation delegates scheduling to looking up outstanding applications from the repository, but this is a pragmatic decision and I would expect this decision to be revisited once more clarity over the domain was given. I'm not a fan of Repositories "entangling" multiple concerns, and would rather have each "slice" define their own needs, but pragmatism is aware of time...
 
 It's API is trivial, with a single asynchronous strongly typed entry point that accepts `{accountId, emptyOrPendingAllocations}`. This takes care of scheduling and applying the allocations.
 
@@ -256,16 +257,18 @@ In order to work it needs to know about any outstanding funds. A reactive event 
 
 NOTE: there is no observability, and events would make a lot of sense here!
 
+For now, we will start with simply an `AllocationRecorder` which merely records those allocations.
+
 ## Allocation repository
 
-The Allocation repository is a persistent store of fund allocations and will necessarily be synchronous. It will act as the System of Record in leiu of an event based Event Log.
+The Allocation repository is a persistent store of fund allocations and will necessarily be synchronous. It will act as the System of Record in lieu of an event based Event Log.
 
 It exposes the following API:
 
-| Function | arguments | Outcomes |
-| -----| ---- | ----- |
-| listPendingAllocations|accountId|`EmptyOrPendingAllocations` are returned|
-| setPendingAllocations|accountId, EmptyOrPendingAllocations|existing allocations are deleted or updated accordingly|
+| Function               | arguments                            | Outcomes                                                |
+| ---------------------- | ------------------------------------ | ------------------------------------------------------- |
+| listPendingAllocations | accountId                            | `EmptyOrPendingAllocations` are returned                |
+| setPendingAllocations  | accountId, EmptyOrPendingAllocations | existing allocations are deleted or updated accordingly |
 
 NOTE: It is highly anticipated that a more generic `listAllocations(statuses)` will be needed, but it is out of scope right now.
 
@@ -281,6 +284,8 @@ An Event/Event Log based system would introduce a number of benefits:
 A stronger type system would also provide a more robust code base:
 
 - `null` is ambiguous and requires defensive programming. The `Option` monad, or other discriminated unions would make the code more robust and elegant.
-- `Error` monad and language support for error shortcutting removes a lot of noise from the code base
+- `Error` monad and language support for error short-cutting removes a lot of noise from the code base
 
 A more "CQRS" focussed approach would move some of the logic out of the repository and allow the processor to store its own model of outstanding allocations.
+
+Because Go lang requires members to be public in order to be annotated with JSON modifiers, the question arises of whether to use DTOs in the "gateway" layer and keep the domain _pure_. For such a small domain this is probably overkill right now.
